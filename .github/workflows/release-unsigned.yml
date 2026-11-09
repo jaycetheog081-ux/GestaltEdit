@@ -1,7 +1,12 @@
 name: Release unsigned IPA
 
 on:
-  workflow_dispatch: # <--- Added this to enable the "Run workflow" button
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (e.g., v1.0.0-beta)'
+        required: true
+        default: 'manual-build'
   push:
     tags:
       - "v*"
@@ -22,6 +27,16 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v7
 
+      # Dynamic helper step to determine if we use the pushed tag or the manual UI text input
+      - name: Set Release Tag Context
+        id: tag_env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "RELEASE_TAG=${{ inputs.tag_name }}" >> $GITHUB_ENV
+          else
+            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
+
       - name: Build unsigned archive
         run: |
           xcodebuild archive \
@@ -41,12 +56,13 @@ jobs:
             "$RUNNER_TEMP/GestaltEdit.xcarchive/Products/Applications/GestaltEdit.app" \
             "$RUNNER_TEMP/Payload/"
           cd "$RUNNER_TEMP"
-          zip -qry "GestaltEdit-${GITHUB_REF_NAME}-unsigned.ipa" Payload
+          zip -qry "GestaltEdit-${{ env.RELEASE_TAG }}-unsigned.ipa" Payload
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
-          name: GestaltEdit ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }} # Forces the action to use our calculated tag rather than falling back to the branch
+          name: GestaltEdit ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           fail_on_unmatched_files: true
-          files: ${{ runner.temp }}/GestaltEdit-${{ github.ref_name }}-unsigned.ipa
+          files: ${{ runner.temp }}/GestaltEdit-${{ env.RELEASE_TAG }}-unsigned.ipa
