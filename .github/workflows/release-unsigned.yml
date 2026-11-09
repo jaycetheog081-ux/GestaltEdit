@@ -1,6 +1,7 @@
 name: Release unsigned IPA
 
 on:
+  workflow_dispatch: # <--- Added this to enable the "Run workflow" button
   push:
     tags:
       - "v*"
